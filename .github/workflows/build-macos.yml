@@ -233,18 +233,21 @@ jobs:
 
       - name: Merge into universal bundle
         run: |
-          rm -rf Demonsaw.app
+          set -euo pipefail
+          MERGED="$PWD/Demonsaw.app"
+          X86="$PWD/app-x86_64"
+          rm -rf "$MERGED"
           # Start from the arm64 bundle (newer Homebrew Qt), then lipo every
           # Mach-O file that exists in both slices.
-          cp -R app-arm64/Demonsaw.app Demonsaw.app
+          cp -R app-arm64/Demonsaw.app "$MERGED"
           while IFS= read -r -d '' f; do
             rel="${f#./}"
-            if [ -f "$rel" ]; then
-              if lipo -info "$f" >/dev/null 2>&1; then
-                lipo -create "$f" "$rel" -output "$rel"
+            if [ -f "$MERGED/$rel" ]; then
+              if lipo -info "$X86/$f" >/dev/null 2>&1; then
+                lipo -create "$X86/$f" "$MERGED/$rel" -output "$MERGED/$rel"
               fi
             fi
-          done < <(cd app-x86_64 && find . -type f -print0)
+          done < <(cd "$X86" && find . -type f -print0)
 
       - name: Verify universal binary
         run: |
