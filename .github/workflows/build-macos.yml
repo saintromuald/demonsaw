@@ -115,6 +115,44 @@ jobs:
           ./build/demonsaw_cli 2>&1 | grep -q "toml" \
             && echo "demonsaw_cli: OK" || exit 1
 
+      - name: End-to-end smoke test (router + engine on localhost)
+        run: |
+          mkdir -p e2e
+          cat > e2e/router.toml <<'EOF'
+          [[router]]
+          	enabled = true
+          	address = "127.0.0.1"
+          	port = 1246
+          	name = "ci-router"
+          EOF
+          cat > e2e/client.toml <<'EOF'
+          [[client]]
+          	enabled = true
+          	name = "ci-engine"
+          	color = "0c9bdc"
+          	[[client.router]]
+          		enabled = true
+          		name = "Router"
+          		address = "127.0.0.1"
+          		port = 1246
+          	[[client.group]]
+          		enabled = true
+          		entropy = "ci-test-passphrase"
+          EOF
+          ./build/demonsaw_router e2e/router.toml < /dev/null &
+          ROUTER_PID=$!
+          sleep 3
+          # The chat goes through the router and back; a healthy snapshot
+          # contains both the success status and the relayed message.
+          ./build/demonsaw_engine_test e2e/client.toml "ci-hello" > e2e/out.txt 2>&1 || true
+          kill "$ROUTER_PID" 2>/dev/null || true
+          if grep -q '"status":"success"' e2e/out.txt && grep -q 'ci-hello' e2e/out.txt; then
+            echo "e2e OK: engine joined the group and the router relayed the chat"
+          else
+            cat e2e/out.txt
+            exit 1
+          fi
+
       - name: Smoke test (GUI launches and stays alive)
         run: |
           ./build/Demonsaw.app/Contents/MacOS/Demonsaw &
