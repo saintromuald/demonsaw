@@ -47,7 +47,8 @@ if(APPLE)
 
 	if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
 		# arm64 requires 11.0; this is also the floor for universal builds.
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version to target" FORCE)
+		# A -DCMAKE_OSX_DEPLOYMENT_TARGET=... on the command line wins.
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version to target")
 	endif()
 endif()
 
