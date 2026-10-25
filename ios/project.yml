@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
+  # Pin the project format: XcodeGen 2.46 defaults to a pbxproj format that
+  # Xcode 15.4 (the CI runner) cannot read ("Unable to read project").
+  xcodeVersion: "15.0"
 settings:
   base:
     SWIFT_VERSION: "5.9"
