@@ -73,7 +73,7 @@ namespace eja
 #if _WIN32
 		QLabel* edition_bolt = new QLabel(QString::fromStdWString(L"\xD83D\xDD25"), this);
 #else
-		QLabel* edition_bolt = new QLabel("\uD83D\uDD25", this);
+		QLabel* edition_bolt = new QLabel(QStringLiteral("\U0001F525"), this);
 #endif
 		edition_bolt->setAlignment(Qt::AlignBottom | Qt::AlignHCenter);
 		edition_bolt->setStyleSheet(QString("QLabel { background:transparent; color:#f2c80f; border:0px; font-size:%1px; }").arg(static_cast<size_t>(18 * ratio)));
