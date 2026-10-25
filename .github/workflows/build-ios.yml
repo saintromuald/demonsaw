@@ -27,11 +27,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch Boost 1.69 sources
+        uses: actions/cache@v4
+        id: boost-cache
+        with:
+          path: boost_1_69_0
+          key: boost-1.69.0-v1
+
+      - name: Fetch Boost 1.69 sources (miss)
+        if: steps.boost-cache.outputs.cache-hit != 'true'
         run: |
           curl -fsSL -o boost.tar.bz2 "$BOOST_URL"
           tar xjf boost.tar.bz2
 
       - name: Build DemonsawEngine.xcframework (device + simulator)
+        uses: actions/cache@v4
+        id: xcframework-cache
+        with:
+          path: ios/build-ios/DemonsawEngine.xcframework
+          key: xcframework-${{ hashFiles('ds4/code/**') }}
+
+      - name: Build DemonsawEngine.xcframework (device + simulator) (miss)
+        if: steps.xcframework-cache.outputs.cache-hit != 'true'
         run: |
           bash scripts/build-ios-xcframework.sh \
             "$GITHUB_WORKSPACE/boost_1_69_0" \
@@ -55,7 +71,14 @@ jobs:
 
       - name: Generate Xcode project
         working-directory: ios
-        run: xcodegen generate
+        run: |
+          xcodegen generate
+          echo "=== pbxproj header ==="
+          head -12 Demonsaw.xcodeproj/project.pbxproj
+          echo "=== objectVersion ==="
+          grep -m1 objectVersion Demonsaw.xcodeproj/project.pbxproj
+          echo "=== xcodebuild -list ==="
+          xcodebuild -list -project Demonsaw.xcodeproj 2>&1 | head -20
 
       - name: Build app for iOS Simulator
         working-directory: ios
