@@ -56,7 +56,20 @@ jobs:
         run: cmake --build build --parallel 4
 
       - name: Deploy Qt frameworks
-        run: '"$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app'
+        run: |
+          # Warm Rosetta translation for the x86_64 Qt tools before
+          # macdeployqt spawns them (cold otool translation exceeds
+          # macdeployqt's QProcess timeout).
+          arch -x86_64 /usr/bin/otool --version || true
+          arch -x86_64 /usr/bin/install_name_tool 2>&1 | head -1 || true
+          "$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app \
+            || echo "macdeployqt failed; falling back to manual deploy"
+          if [ ! -d build/Demonsaw.app/Contents/Frameworks ]; then
+            echo "macdeployqt deployed nothing; running manual deploy"
+            bash ds4/code/cmake/macdeploy-manual.sh \
+              "$HOME/Qt/5.15.2/clang_64" build/Demonsaw.app
+          fi
+          ls build/Demonsaw.app/Contents/Frameworks/
 
       - name: Ad-hoc codesign
         run: codesign --force --deep --sign - build/Demonsaw.app
@@ -168,7 +181,15 @@ jobs:
           fi
 
       - name: Deploy Qt frameworks
-        run: /opt/homebrew/opt/qt@5/bin/macdeployqt build/Demonsaw.app
+        run: |
+          /opt/homebrew/opt/qt@5/bin/macdeployqt build/Demonsaw.app \
+            || echo "macdeployqt failed; falling back to manual deploy"
+          if [ ! -d build/Demonsaw.app/Contents/Frameworks ]; then
+            echo "macdeployqt deployed nothing; running manual deploy"
+            bash ds4/code/cmake/macdeploy-manual.sh \
+              "/opt/homebrew/opt/qt@5" build/Demonsaw.app
+          fi
+          ls build/Demonsaw.app/Contents/Frameworks/
 
       - name: Ad-hoc codesign
         run: codesign --force --deep --sign - build/Demonsaw.app
@@ -223,8 +244,23 @@ jobs:
 
       - name: Verify universal binary
         run: |
-          lipo -info Demonsaw.app/Contents/MacOS/Demonsaw
-          lipo -info Demonsaw.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
+          # Every Mach-O that exists on both slices must end up universal;
+          # a single-arch framework would break the app on the other arch.
+          for f in \
+            Demonsaw.app/Contents/MacOS/Demonsaw \
+            Demonsaw.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore \
+            Demonsaw.app/Contents/Frameworks/QtGui.framework/Versions/5/QtGui \
+            Demonsaw.app/Contents/Frameworks/QtWidgets.framework/Versions/5/QtWidgets \
+            Demonsaw.app/Contents/Frameworks/QtSvg.framework/Versions/5/QtSvg \
+            Demonsaw.app/Contents/PlugIns/platforms/libqcocoa.dylib; do
+            if ! lipo -info "$f" 2>/dev/null | grep -q "x86_64" \
+               || ! lipo -info "$f" 2>/dev/null | grep -q "arm64"; then
+              echo "NOT UNIVERSAL: $f"
+              lipo -info "$f" || true
+              exit 1
+            fi
+          done
+          echo "all critical binaries are universal"
 
       - name: Smoke test merged bundle (arm64 native)
         run: |
@@ -242,10 +278,11 @@ jobs:
 
       - name: Smoke test merged bundle (x86_64 via Rosetta, best-effort)
         run: |
-          if ! arch -x86_64 ./Demonsaw.app/Contents/MacOS/Demonsaw & then
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
             echo "Rosetta unavailable; skipping x86_64 smoke test"
             exit 0
           fi
+          arch -x86_64 ./Demonsaw.app/Contents/MacOS/Demonsaw &
           APP_PID=$!
           sleep 8
           if kill -0 "$APP_PID" 2>/dev/null; then
