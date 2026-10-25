@@ -14,9 +14,33 @@ endif()
 
 set(BOOST_INCLUDE_DIR "${DEMONSAW_BOOST_SOURCE_DIR}")
 
+# glibc >= 2.34 defines PTHREAD_STACK_MIN as a function-like macro
+# (__sysconf(__SC_THREAD_STACK_MIN_VALUE)), which breaks Boost 1.69's
+# `#if PTHREAD_STACK_MIN > 0` in boost/thread/pthread/thread_data.hpp.
+# macOS, Bionic and pre-2.34 glibc are unaffected, but host Linux builds
+# (and any consumer of the prebuilt-boost path on new glibc) need the fix.
+# Instead of mutating the Boost tree we write a patched copy of the header
+# into the build directory and shadow it ahead of the real include dir.
+# The replacement is semantically equivalent everywhere: when the macro is
+# defined it is always positive, and an undefined macro now simply skips
+# the clamp, exactly like a defined-but-zero value would have.
+set(BOOST_PATCHED_INC "")
+set(_thread_data_src "${BOOST_INCLUDE_DIR}/boost/thread/pthread/thread_data.hpp")
+if(EXISTS "${_thread_data_src}")
+	file(READ "${_thread_data_src}" _thread_data)
+	string(FIND "${_thread_data}" "#if PTHREAD_STACK_MIN > 0" _needs_patch)
+	if(NOT _needs_patch EQUAL -1)
+		string(REPLACE "#if PTHREAD_STACK_MIN > 0" "#if defined(PTHREAD_STACK_MIN)" _thread_data "${_thread_data}")
+		set(BOOST_PATCHED_INC "${CMAKE_BINARY_DIR}/boost_patched")
+		file(MAKE_DIRECTORY "${BOOST_PATCHED_INC}/boost/thread/pthread")
+		file(WRITE "${BOOST_PATCHED_INC}/boost/thread/pthread/thread_data.hpp" "${_thread_data}")
+		message(STATUS "Demonsaw: shadowing patched Boost thread_data.hpp (glibc >= 2.34 fix)")
+	endif()
+endif()
+
 function(demonsaw_boost_lib name)
 	add_library(${name} STATIC ${ARGN})
-	target_include_directories(${name} SYSTEM PUBLIC "${BOOST_INCLUDE_DIR}")
+	target_include_directories(${name} SYSTEM PUBLIC "${BOOST_PATCHED_INC}" "${BOOST_INCLUDE_DIR}")
 	target_compile_definitions(${name} PUBLIC
 		BOOST_ALL_NO_LIB
 		BOOST_CONFIG_SUPPRESS_OUTDATED_MESSAGE)
@@ -58,6 +82,9 @@ demonsaw_boost_lib(boost_thread
 target_link_libraries(boost_thread PUBLIC boost_system boost_chrono boost_date_time boost_atomic Threads::Threads)
 
 add_library(demonsaw_boost INTERFACE)
+target_include_directories(demonsaw_boost SYSTEM INTERFACE
+	"${BOOST_PATCHED_INC}"
+	"${BOOST_INCLUDE_DIR}")
 target_link_libraries(demonsaw_boost INTERFACE
 	boost_filesystem
 	boost_thread

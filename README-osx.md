@@ -1,0 +1,98 @@
+# Demonsaw for macOS
+
+Native macOS build of Demonsaw 4.2.1 — the **same desktop client** that ships
+on Windows and Linux (`4_client_desktop` Qt Widgets UI, `demonsaw_cli`,
+`demonsaw_router`), so it has full feature parity by construction: chat,
+rooms, private messages, browse, search, uploads/downloads, shares, and
+router mode. The wire protocol and crypto are unchanged; macOS clients
+interoperate with Windows, Linux and Android clients.
+
+## Layout
+
+```
+ds4/code/
+  CMakeLists.txt             builds core, client, GUI, CLI, router, tests
+  cmake/BoostSources.cmake   compiles the Boost 1.69 subset from source
+  cmake/macOS-Info.plist.in  .app bundle Info.plist template
+  cmake/macos-sign.sh        Developer ID signing + notarization helper
+.github/workflows/build-macos.yml  CI: universal DMG on macOS runners
+```
+
+## Building on a Mac
+
+Requirements: macOS 11+, Xcode command line tools, CMake 3.20+, Ninja,
+Qt 5.15.x (Widgets + Svg), and a Boost 1.69 source tree.
+
+```bash
+# 1. Boost 1.69 sources (the exact version the code was written against)
+curl -fsSL -o boost_1_69_0.tar.bz2 \
+  https://archives.boost.io/release/1.69.0/source/boost_1_69_0.tar.bz2
+tar xjf boost_1_69_0.tar.bz2
+
+# 2. Qt 5.15.x (e.g. the official online installer, or Homebrew's qt@5,
+#    or aqtinstall:  python3 -m aqt install-qt mac desktop 5.15.2 -m qtsvg)
+
+# 3. Configure
+#    Universal (x86_64 + arm64, macOS 11+):  add -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+#    Intel-only (macOS 10.15+):              add -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
+cmake -S ds4/code -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH=/path/to/Qt/5.15.2/clang_64 \
+  -DDEMONSAW_BOOST_SOURCE_DIR=/path/to/boost_1_69_0 \
+  -DDEMONSAW_BUILD_GUI=ON
+
+# 4. Build
+cmake --build build --parallel
+
+# 5. Bundle Qt frameworks into the .app
+/path/to/Qt/5.15.2/clang_64/bin/macdeployqt build/Demonsaw.app
+
+# 6. Ad-hoc sign so it runs locally without warnings
+codesign --force --deep --sign - build/Demonsaw.app
+```
+
+Outputs:
+
+- `build/Demonsaw.app` — the desktop client
+- `build/demonsaw_cli` — command-line client
+- `build/demonsaw_router` — router (runs a headless router daemon)
+
+## CI builds
+
+`.github/workflows/build-macos.yml` builds a **universal** `x86_64 + arm64`
+DMG (macOS 11+) on GitHub's macOS runners, runs smoke tests (engine, CLI,
+GUI launch), bundles Qt, ad-hoc signs, and uploads
+`Demonsaw-4.2.1-macos-universal.dmg` as a workflow artifact. Push to
+`master`/`osx` or use `workflow_dispatch`.
+
+## Release signing
+
+CI DMGs are ad-hoc signed: fine for local use and testing, but Gatekeeper
+will warn when other people download them. For a real release, sign with a
+Developer ID Application certificate and notarize (requires an Apple
+Developer Program account, $99/year):
+
+```bash
+APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+APPLE_ID=you@example.com \
+APPLE_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx \
+APPLE_TEAM_ID=TEAMID \
+  ds4/code/cmake/macos-sign.sh build/Demonsaw.app
+
+# then build the DMG from the signed app and notarize the DMG:
+xcrun notarytool submit Demonsaw.dmg --apple-id you@example.com \
+  --password xxxx-xxxx-xxxx-xxxx --team-id TEAMID --wait
+xcrun stapler staple Demonsaw.dmg
+```
+
+## Notes
+
+- The codebase uses `#if _MACX` platform guards; the CMake build defines
+  `_MACX` automatically on Apple targets.
+- Minimum macOS: 11.0 for universal builds (arm64 requirement). Use
+  `-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15` for Intel-only builds.
+- Qt is linked per the LGPL; `macdeployqt` copies the Qt frameworks into the
+  bundle so no separate Qt install is needed.
+- Linux host builds need the Boost `PTHREAD_STACK_MIN` shadow patch that
+  `cmake/BoostSources.cmake` applies automatically (glibc >= 2.34 only;
+  macOS is unaffected).

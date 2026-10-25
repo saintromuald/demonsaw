@@ -78,7 +78,7 @@
 #include "widget/share_widget.h"
 #include "widget/statusbar_widget.h"
 #include "widget/upload_widget.h"
-#include "Widget/option/option_widget.h"
+#include "widget/option/option_widget.h"
 
 #include "window/main_window.h"
 #include "window/client_window.h"

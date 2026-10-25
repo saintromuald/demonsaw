@@ -1,0 +1,95 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [master, osx]
+    paths:
+      - 'ds4/**'
+      - '.github/workflows/build-macos.yml'
+  pull_request:
+    paths:
+      - 'ds4/**'
+      - '.github/workflows/build-macos.yml'
+  workflow_dispatch:
+
+jobs:
+  build-universal:
+    name: macOS universal (x86_64 + arm64)
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5.15.2 (universal)
+        run: |
+          python3 -m pip install --user --quiet aqtinstall
+          python3 -m aqt install-qt mac desktop 5.15.2 \
+            --outputdir "$HOME/Qt" -m qtsvg qttools
+          "$HOME/Qt/5.15.2/clang_64/bin/qmake" --version
+
+      - name: Fetch Boost 1.69 sources
+        run: |
+          curl -fsSL -o boost.tar.bz2 \
+            https://archives.boost.io/release/1.69.0/source/boost_1_69_0.tar.bz2
+          tar xjf boost.tar.bz2
+
+      - name: Configure (universal)
+        run: |
+          cmake -S ds4/code -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$HOME/Qt/5.15.2/clang_64" \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DDEMONSAW_BOOST_SOURCE_DIR="$GITHUB_WORKSPACE/boost_1_69_0" \
+            -DDEMONSAW_BUILD_GUI=ON \
+            -DDEMONSAW_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Verify universal binary
+        run: lipo -info build/Demonsaw.app/Contents/MacOS/Demonsaw
+
+      - name: Smoke test (engine + CLI run natively)
+        run: |
+          ./build/demonsaw_engine_test 2>&1 | grep -q "usage" \
+            && echo "engine_test: OK" || exit 1
+          ./build/demonsaw_cli 2>&1 | grep -q "toml" \
+            && echo "demonsaw_cli: OK" || exit 1
+
+      - name: Smoke test (GUI launches and stays alive)
+        run: |
+          ./build/Demonsaw.app/Contents/MacOS/Demonsaw &
+          APP_PID=$!
+          sleep 10
+          if kill -0 "$APP_PID" 2>/dev/null; then
+            echo "GUI alive after 10s: OK"
+            kill "$APP_PID" || true
+          else
+            wait "$APP_PID"
+            echo "GUI exited early (code $?)" >&2
+            exit 1
+          fi
+
+      - name: Deploy Qt frameworks
+        run: "$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app
+
+      - name: Ad-hoc codesign (for local use; release signing is a manual step)
+        run: codesign --force --deep --sign - build/Demonsaw.app
+
+      - name: Create DMG
+        run: |
+          mkdir -p staging
+          cp -R build/Demonsaw.app staging/
+          cp build/demonsaw_cli build/demonsaw_router staging/
+          ln -s /Applications staging/Applications
+          hdiutil create -volname "Demonsaw" -srcfolder staging -ov \
+            -format UDZO "Demonsaw-4.2.1-macos-universal.dmg"
+          hdiutil verify "Demonsaw-4.2.1-macos-universal.dmg"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Demonsaw-macos-universal
+          path: |
+            Demonsaw-4.2.1-macos-universal.dmg
+          if-no-files-found: error
