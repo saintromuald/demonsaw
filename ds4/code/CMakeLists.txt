@@ -9,6 +9,7 @@ project(demonsaw
 # Options
 # ---------------------------------------------------------------------------
 option(DEMONSAW_BUILD_APPS "Build the CLI client and router binaries" ON)
+option(DEMONSAW_BUILD_GUI  "Build the Qt Widgets desktop client (needs Qt 5 Widgets + Svg)" OFF)
 option(DEMONSAW_BUILD_JNI  "Build the Android JNI shared library" OFF)
 option(DEMONSAW_BUILD_TESTS "Build development test harnesses" OFF)
 option(DEMONSAW_WERROR     "Treat warnings as errors" OFF)
@@ -36,6 +37,20 @@ add_compile_options(-fno-strict-aliasing)
 set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
+# ---------------------------------------------------------------------------
+# macOS
+# ---------------------------------------------------------------------------
+# The codebase uses `#if _MACX` platform guards (like the MSVC-defined
+# `_WIN32` on Windows), so macOS builds must define it explicitly.
+if(APPLE)
+	add_compile_definitions(_MACX=1)
+
+	if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+		# arm64 requires 11.0; this is also the floor for universal builds.
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version to target" FORCE)
+	endif()
+endif()
+
 set(DS_CODE "${CMAKE_CURRENT_SOURCE_DIR}")
 set(DS_ROOT "${DS_CODE}/..")
 
@@ -60,6 +75,22 @@ else()
 		set(DEMONSAW_BOOST_LIB_DIR "${DEMONSAW_BOOST_ROOT}/stage/lib")
 	endif()
 
+	# Same glibc >= 2.34 PTHREAD_STACK_MIN fix as in cmake/BoostSources.cmake,
+	# but for consumers of a prebuilt Boost tree (headers only are patched).
+	set(BOOST_PATCHED_INC "")
+	set(_thread_data_src "${BOOST_INCLUDE_DIR}/boost/thread/pthread/thread_data.hpp")
+	if(EXISTS "${_thread_data_src}")
+		file(READ "${_thread_data_src}" _thread_data)
+		string(FIND "${_thread_data}" "#if PTHREAD_STACK_MIN > 0" _needs_patch)
+		if(NOT _needs_patch EQUAL -1)
+			string(REPLACE "#if PTHREAD_STACK_MIN > 0" "#if defined(PTHREAD_STACK_MIN)" _thread_data "${_thread_data}")
+			set(BOOST_PATCHED_INC "${CMAKE_BINARY_DIR}/boost_patched")
+			file(MAKE_DIRECTORY "${BOOST_PATCHED_INC}/boost/thread/pthread")
+			file(WRITE "${BOOST_PATCHED_INC}/boost/thread/pthread/thread_data.hpp" "${_thread_data}")
+			message(STATUS "Demonsaw: shadowing patched Boost thread_data.hpp (glibc >= 2.34 fix)")
+		endif()
+	endif()
+
 	function(demonsaw_find_boost_lib out name)
 		file(GLOB candidates
 			"${DEMONSAW_BOOST_LIB_DIR}/libboost_${name}*.a"
@@ -79,7 +110,9 @@ else()
 	endforeach()
 
 	add_library(demonsaw_boost INTERFACE)
-	target_include_directories(demonsaw_boost SYSTEM INTERFACE "${BOOST_INCLUDE_DIR}")
+	target_include_directories(demonsaw_boost SYSTEM INTERFACE
+		"${BOOST_PATCHED_INC}"
+		"${BOOST_INCLUDE_DIR}")
 	target_link_libraries(demonsaw_boost INTERFACE
 		${DEMONSAW_BOOST_filesystem}
 		${DEMONSAW_BOOST_thread}
@@ -169,6 +202,63 @@ endif()
 # ---------------------------------------------------------------------------
 if(DEMONSAW_BUILD_JNI)
 	add_subdirectory("${DS_CODE}/android/jni" "${CMAKE_BINARY_DIR}/jni")
+endif()
+
+# ---------------------------------------------------------------------------
+# Desktop client (Qt 5 Widgets) - the same UI as the Windows/Linux builds
+# ---------------------------------------------------------------------------
+if(DEMONSAW_BUILD_GUI)
+	find_package(Qt5 REQUIRED COMPONENTS Widgets Svg)
+	set(CMAKE_AUTOMOC ON)
+	set(CMAKE_AUTORCC ON)
+
+	# Shared GUI library (widgets, dialogs, resources)
+	file(GLOB_RECURSE CORE_GUI_SOURCES CONFIGURE_DEPENDS "${DS_CODE}/4_core_gui/*.cpp")
+	add_library(demonsaw_core_gui STATIC ${CORE_GUI_SOURCES})
+	target_include_directories(demonsaw_core_gui PUBLIC
+		"${DS_CODE}/4_core_gui"
+		"${DS_CODE}/4_core")
+	target_link_libraries(demonsaw_core_gui PUBLIC
+		Qt5::Widgets
+		Qt5::Svg
+		demonsaw_core)
+
+	# Desktop application
+	file(GLOB_RECURSE DESKTOP_SOURCES CONFIGURE_DEPENDS "${DS_CODE}/4_client_desktop/*.cpp")
+	# qmake-generated plugin import file; not needed with CMake
+	list(FILTER DESKTOP_SOURCES EXCLUDE REGEX "4_client_desktop_plugin_import\\.cpp$")
+	add_executable(demonsaw_desktop
+		${DESKTOP_SOURCES}
+		# Header-only Q_OBJECT classes have no same-named .cpp, so AUTOMOC
+		# does not discover them on its own; list them explicitly (qmake
+		# handled this via the HEADERS lists in the .pri files).
+		"${DS_CODE}/4_client_desktop/widget/option/option_pane.h"
+		"${DS_CODE}/4_client_desktop/4_client_desktop.qrc")
+	target_include_directories(demonsaw_desktop PRIVATE
+		"${DS_CODE}/4_client_desktop"
+		"${DS_CODE}/4_core_gui")
+	target_link_libraries(demonsaw_desktop PRIVATE
+		demonsaw_core_gui
+		demonsaw_client_core)
+	set_target_properties(demonsaw_desktop PROPERTIES OUTPUT_NAME "Demonsaw")
+
+	if(APPLE)
+		set_target_properties(demonsaw_desktop PROPERTIES
+			MACOSX_BUNDLE TRUE
+			MACOSX_BUNDLE_BUNDLE_NAME "Demonsaw"
+			MACOSX_BUNDLE_GUI_IDENTIFIER "com.demonsaw.client"
+			MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+			MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+			MACOSX_BUNDLE_ICON_FILE "4_client_desktop.icns"
+			MACOSX_BUNDLE_INFO_PLIST "${DS_CODE}/cmake/macOS-Info.plist.in")
+		target_sources(demonsaw_desktop PRIVATE
+			"${DS_CODE}/4_client_desktop/4_client_desktop.icns")
+		set_source_files_properties(
+			"${DS_CODE}/4_client_desktop/4_client_desktop.icns"
+			PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+	elseif(WIN32)
+		set_target_properties(demonsaw_desktop PROPERTIES WIN32_EXECUTABLE TRUE)
+	endif()
 endif()
 
 # ---------------------------------------------------------------------------
