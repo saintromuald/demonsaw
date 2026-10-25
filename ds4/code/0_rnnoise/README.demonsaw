@@ -1,0 +1,3 @@
+RNNoise (Xiph real-time NN noise suppression)
+Source: https://gitlab.xiph.org/xiph/rnnoise pinned commit 70f1d256acd4b34a572f999a05c87bf00b67730d
+License: BSD-3-Clause (COPYING)
