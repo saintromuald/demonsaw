@@ -51,13 +51,13 @@ struct MainView: View {
                 RoomView(
                     room: vm.snapshot.rooms.first { $0.id == route.id },
                     snapshot: vm.snapshot,
-                    onSend: { vm.sendRoom(route.id, $0) }
+                    onSend: { vm.sendRoom(roomId: route.id, text: $0) }
                 )
             }
             .navigationDestination(for: PmRoute.self) { route in
                 PmView(
                     peer: vm.snapshot.clients.first { $0.id == route.id },
-                    onSend: { vm.sendPm(route.id, $0) }
+                    onSend: { vm.sendPm(clientId: route.id, text: $0) }
                 )
             }
         }
