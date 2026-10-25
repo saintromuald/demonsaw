@@ -1,8 +1,8 @@
 # iOS plan of attack
 
 Target: Demonsaw on iOS with feature parity with the desktop client, to the
-extent iOS allows. Status: **planning** (macOS desktop build is done first;
-see README-osx.md).
+extent iOS allows. Status: **ready to start** (macOS desktop build is done:
+see README-osx.md; this plan is next).
 
 ## What we already have (from the Android port)
 
