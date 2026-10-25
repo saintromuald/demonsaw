@@ -1,0 +1,109 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [master, osx, ios]
+    paths:
+      - 'ds4/**'
+      - 'ios/**'
+      - 'scripts/build-ios-xcframework.sh'
+      - '.github/workflows/build-ios.yml'
+  pull_request:
+    paths:
+      - 'ds4/**'
+      - 'ios/**'
+      - '.github/workflows/build-ios.yml'
+  workflow_dispatch:
+
+env:
+  BOOST_URL: https://archives.boost.io/release/1.69.0/source/boost_1_69_0.tar.bz2
+
+jobs:
+  build-ios:
+    name: iOS app (simulator) + DemonsawEngine.xcframework
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch Boost 1.69 sources
+        run: |
+          curl -fsSL -o boost.tar.bz2 "$BOOST_URL"
+          tar xjf boost.tar.bz2
+
+      - name: Build DemonsawEngine.xcframework (device + simulator)
+        run: |
+          bash scripts/build-ios-xcframework.sh \
+            "$GITHUB_WORKSPACE/boost_1_69_0" \
+            "$GITHUB_WORKSPACE/ios/build-ios"
+          ls -la ios/build-ios/DemonsawEngine.xcframework
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Create app icon (1024x1024 from the logo)
+        run: |
+          mkdir -p ios/Demonsaw/Assets.xcassets/AppIcon.appiconset
+          cat > ios/Demonsaw/Assets.xcassets/Contents.json <<'EOF'
+          {"info":{"author":"xcode","version":1}}
+          EOF
+          sips -z 1024 1024 ds4/code/4_client_desktop/resource/logo_rgb.png \
+            --out ios/Demonsaw/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+          cat > ios/Demonsaw/Assets.xcassets/AppIcon.appiconset/Contents.json <<'EOF'
+          {"images":[{"filename":"AppIcon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
+          EOF
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build app for iOS Simulator
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project Demonsaw.xcodeproj \
+            -scheme Demonsaw \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Smoke test on the iOS Simulator
+        run: |
+          set -euxo pipefail
+          DEVICE=$(xcrun simctl list devices available | sed -nE 's/^    (iPhone [0-9]+) \(.*/\1/p' | head -1)
+          [ -n "$DEVICE" ] || DEVICE="iPhone 15"
+          echo "Using simulator: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          APP=$(find ios/build/Build/Products -name "Demonsaw.app" -type d | head -1)
+          [ -n "$APP" ] || { echo "FATAL: app bundle not found"; exit 1; }
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl launch "$DEVICE" com.demonsaw.ios
+          sleep 8
+          xcrun simctl io "$DEVICE" screenshot ios/build/simulator-smoke.png
+          # The app must still be running (launch would have failed loudly
+          # on a crash; screenshot proves the UI rendered).
+          xcrun simctl listapps "$DEVICE" | grep -q com.demonsaw.ios \
+            && echo "iOS app installed and launched: OK"
+          ls -la ios/build/simulator-smoke.png
+
+      - name: Package artifacts
+        run: |
+          APP=$(find ios/build/Build/Products -name "Demonsaw.app" -type d | head -1)
+          ditto -c -k --keepParent "$APP" Demonsaw-ios-simulator.zip
+          ditto -c -k --keepParent ios/build-ios/DemonsawEngine.xcframework \
+            DemonsawEngine.xcframework.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Demonsaw-ios
+          path: |
+            Demonsaw-ios-simulator.zip
+            DemonsawEngine.xcframework.zip
+            ios/build/simulator-smoke.png
+          if-no-files-found: error

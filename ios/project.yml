@@ -1,0 +1,55 @@
+name: Demonsaw
+options:
+  bundleIdPrefix: com.demonsaw
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: false
+targets:
+  Demonsaw:
+    type: application
+    platform: iOS
+    sources:
+      - path: Demonsaw
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.demonsaw.ios
+        PRODUCT_NAME: Demonsaw
+        SWIFT_OBJC_BRIDGING_HEADER: Demonsaw/Demonsaw-Bridging-Header.h
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 4.2.1
+        TARGETED_DEVICE_FAMILY: "1"
+        # The engine is C++; the static xcframework needs the C++ runtime.
+        OTHER_LDFLAGS:
+          - -lc++
+    dependencies:
+      - framework: build-ios/DemonsawEngine.xcframework
+        embed: false
+    info:
+      path: Demonsaw/Info.plist
+      properties:
+        CFBundleDisplayName: Demonsaw
+        CFBundleShortVersionString: "4.2.1"
+        CFBundleVersion: "1"
+        # Local network permission prompt (iOS 14+)
+        NSLocalNetworkUsageDescription: Demonsaw connects to Demonsaw routers and peers on your local network.
+        # Expose the Documents folder (downloads, shares) in the Files app
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+schemes:
+  Demonsaw:
+    build:
+      targets:
+        Demonsaw: all
+    run:
+      config: Debug
+    archive:
+      config: Release

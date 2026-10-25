@@ -11,6 +11,7 @@ project(demonsaw
 option(DEMONSAW_BUILD_APPS "Build the CLI client and router binaries" ON)
 option(DEMONSAW_BUILD_GUI  "Build the Qt Widgets desktop client (needs Qt 5 Widgets + Svg)" OFF)
 option(DEMONSAW_BUILD_JNI  "Build the Android JNI shared library" OFF)
+option(DEMONSAW_BUILD_IOS  "Build the iOS engine static library (headless client + C bridge)" OFF)
 option(DEMONSAW_BUILD_TESTS "Build development test harnesses" OFF)
 option(DEMONSAW_WERROR     "Treat warnings as errors" OFF)
 
@@ -41,8 +42,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 # macOS
 # ---------------------------------------------------------------------------
 # The codebase uses `#if _MACX` platform guards (like the MSVC-defined
-# `_WIN32` on Windows), so macOS builds must define it explicitly.
-if(APPLE)
+# `_WIN32` on Windows), so macOS builds must define it explicitly. iOS
+# deliberately uses the generic POSIX path (no _MACX), like Android.
+if(APPLE AND NOT IOS)
 	add_compile_definitions(_MACX=1)
 
 	if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
@@ -203,6 +205,23 @@ endif()
 # ---------------------------------------------------------------------------
 if(DEMONSAW_BUILD_JNI)
 	add_subdirectory("${DS_CODE}/android/jni" "${CMAKE_BINARY_DIR}/jni")
+endif()
+
+# ---------------------------------------------------------------------------
+# iOS engine (headless client + C bridge, built as a static lib / xcframework)
+# ---------------------------------------------------------------------------
+if(DEMONSAW_BUILD_IOS)
+	add_library(demonsaw_engine STATIC
+		"${DS_CODE}/ios/engine_bridge.cpp"
+		"${DS_CODE}/android/engine/engine.cpp"
+		"${DS_CODE}/4_client_cli/config/cli_application.cpp")
+	target_include_directories(demonsaw_engine PUBLIC
+		"${DS_CODE}"
+		"${DS_CODE}/ios"
+		"${DS_CODE}/android"
+		"${DS_CODE}/4_client_cli")
+	target_link_libraries(demonsaw_engine PUBLIC demonsaw_client_core)
+	set_target_properties(demonsaw_engine PROPERTIES OUTPUT_NAME demonsaw_engine)
 endif()
 
 # ---------------------------------------------------------------------------
