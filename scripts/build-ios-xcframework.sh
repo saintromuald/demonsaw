@@ -48,6 +48,36 @@ build_sdk iphoneos arm64 "$OUT/device"
 build_sdk iphonesimulator "arm64;x86_64" "$OUT/simulator"
 
 # ---------------------------------------------------------------------------
+# Merge all archives into one per SDK. CMake's demonsaw_engine static lib
+# only contains its own objects (engine, bridge, cli_application); the
+# transitive static libs (core, client core, Crypto++, cpp-netlib, Boost)
+# are separate archives. Xcode links only the framework, so everything
+# must be flattened into a single archive with libtool -static.
+# ---------------------------------------------------------------------------
+merge_archives()
+{
+	local dir="$1"
+
+	cd "$dir"
+	libtool -static -o libdemonsaw_engine_merged.a \
+		libdemonsaw_engine.a \
+		libdemonsaw_client_core.a \
+		libdemonsaw_core.a \
+		libdemonsaw_cryptopp.a \
+		libdemonsaw_cppnetlib.a \
+		libboost_filesystem.a \
+		libboost_thread.a \
+		libboost_chrono.a \
+		libboost_system.a \
+		libboost_date_time.a \
+		libboost_atomic.a
+	cd - >/dev/null
+}
+
+merge_archives "$OUT/device"
+merge_archives "$OUT/simulator"
+
+# ---------------------------------------------------------------------------
 # Wrap each archive in a static framework, then make the XCFramework
 # ---------------------------------------------------------------------------
 make_framework()
@@ -85,8 +115,8 @@ make_framework()
 EOF
 }
 
-make_framework "$OUT/device/libdemonsaw_engine.a" "$OUT"
-make_framework "$OUT/simulator/libdemonsaw_engine.a" "$OUT/simulator"
+make_framework "$OUT/device/libdemonsaw_engine_merged.a" "$OUT"
+make_framework "$OUT/simulator/libdemonsaw_engine_merged.a" "$OUT/simulator"
 
 echo "=== Creating DemonsawEngine.xcframework ==="
 rm -rf "$OUT/DemonsawEngine.xcframework"

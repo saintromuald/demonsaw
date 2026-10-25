@@ -44,7 +44,7 @@ jobs:
         id: xcframework-cache
         with:
           path: ios/build-ios/DemonsawEngine.xcframework
-          key: xcframework-${{ hashFiles('ds4/code/**') }}
+          key: xcframework-${{ hashFiles('ds4/code/**', 'scripts/build-ios-xcframework.sh') }}
 
       - name: Build DemonsawEngine.xcframework (device + simulator) (miss)
         if: steps.xcframework-cache.outputs.cache-hit != 'true'
