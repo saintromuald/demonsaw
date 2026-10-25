@@ -28,6 +28,9 @@ jobs:
 
       - name: Install Qt 5.15.2 (x86_64)
         run: |
+          # The arm64 runner executes x86_64 Qt tools (qmake, macdeployqt)
+          # through Rosetta 2.
+          softwareupdate --install-rosetta --agree-to-license || true
           python3 -m venv "$HOME/aqt-venv"
           "$HOME/aqt-venv/bin/pip" install --quiet aqtinstall
           "$HOME/aqt-venv/bin/python" -m aqt install-qt mac desktop 5.15.2 \
