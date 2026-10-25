@@ -12,45 +12,98 @@ on:
       - '.github/workflows/build-macos.yml'
   workflow_dispatch:
 
+env:
+  BOOST_URL: https://archives.boost.io/release/1.69.0/source/boost_1_69_0.tar.bz2
+
 jobs:
-  build-universal:
-    name: macOS universal (x86_64 + arm64)
+  # Intel slice: official Qt 5.15.2 binaries are x86_64-only, so the
+  # x86_64 app is built against them (cross-compiled from the arm64 runner;
+  # no native x86_64 GitHub runner is needed).
+  build-intel:
+    name: Intel x86_64 (macOS 10.15+)
     runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Qt 5.15.2 (universal)
+      - name: Install Qt 5.15.2 (x86_64)
         run: |
           python3 -m venv "$HOME/aqt-venv"
           "$HOME/aqt-venv/bin/pip" install --quiet aqtinstall
-          # The 5.15.2 mac desktop archive already bundles qtbase, qtsvg and
-          # qttools (universal x86_64+arm64); no extra modules are needed.
           "$HOME/aqt-venv/bin/python" -m aqt install-qt mac desktop 5.15.2 \
             --outputdir "$HOME/Qt"
           "$HOME/Qt/5.15.2/clang_64/bin/qmake" --version
 
       - name: Fetch Boost 1.69 sources
         run: |
-          curl -fsSL -o boost.tar.bz2 \
-            https://archives.boost.io/release/1.69.0/source/boost_1_69_0.tar.bz2
+          curl -fsSL -o boost.tar.bz2 "$BOOST_URL"
           tar xjf boost.tar.bz2
 
-      - name: Configure (universal)
+      - name: Configure (x86_64)
         run: |
           cmake -S ds4/code -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$HOME/Qt/5.15.2/clang_64" \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
+            -DDEMONSAW_BOOST_SOURCE_DIR="$GITHUB_WORKSPACE/boost_1_69_0" \
+            -DDEMONSAW_BUILD_GUI=ON
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Deploy Qt frameworks
+        run: '"$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app'
+
+      - name: Ad-hoc codesign
+        run: codesign --force --deep --sign - build/Demonsaw.app
+
+      - name: Package app bundle
+        run: |
+          ditto -c -k --keepParent build/Demonsaw.app Demonsaw-x86_64.zip
+          cp build/demonsaw_cli build/demonsaw_router .
+
+      - name: Upload Intel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Demonsaw-macos-x86_64
+          path: |
+            Demonsaw-x86_64.zip
+            demonsaw_cli
+            demonsaw_router
+          if-no-files-found: error
+
+  # ARM slice: built natively with Homebrew's qt@5 (arm64 bottles).
+  build-arm:
+    name: Apple Silicon arm64 (macOS 11+)
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5 (arm64, Homebrew)
+        run: |
+          brew install qt@5
+          /opt/homebrew/opt/qt@5/bin/qmake --version
+
+      - name: Fetch Boost 1.69 sources
+        run: |
+          curl -fsSL -o boost.tar.bz2 "$BOOST_URL"
+          tar xjf boost.tar.bz2
+
+      - name: Configure (arm64)
+        run: |
+          cmake -S ds4/code -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@5" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
             -DDEMONSAW_BOOST_SOURCE_DIR="$GITHUB_WORKSPACE/boost_1_69_0" \
             -DDEMONSAW_BUILD_GUI=ON \
             -DDEMONSAW_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --parallel 4
-
-      - name: Verify universal binary
-        run: lipo -info build/Demonsaw.app/Contents/MacOS/Demonsaw
 
       - name: Smoke test (engine + CLI run natively)
         run: |
@@ -74,25 +127,81 @@ jobs:
           fi
 
       - name: Deploy Qt frameworks
-        run: '"$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app'
+        run: /opt/homebrew/opt/qt@5/bin/macdeployqt build/Demonsaw.app
 
-      - name: Ad-hoc codesign (for local use; release signing is a manual step)
+      - name: Ad-hoc codesign
         run: codesign --force --deep --sign - build/Demonsaw.app
+
+      - name: Package app bundle
+        run: |
+          ditto -c -k --keepParent build/Demonsaw.app Demonsaw-arm64.zip
+          cp build/demonsaw_cli build/demonsaw_router .
+
+      - name: Upload ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Demonsaw-macos-arm64
+          path: |
+            Demonsaw-arm64.zip
+            demonsaw_cli
+            demonsaw_router
+          if-no-files-found: error
+
+  # Merge both slices into one universal .app via lipo, then build the DMG.
+  merge-universal:
+    name: Universal DMG (x86_64 + arm64)
+    needs: [build-intel, build-arm]
+    runs-on: macos-14
+    steps:
+      - name: Download slices
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Demonsaw-macos-*
+          path: slices
+          merge-multiple: false
+
+      - name: Unpack app bundles
+        run: |
+          ditto -x -k slices/Demonsaw-macos-x86_64/Demonsaw-x86_64.zip app-x86_64/
+          ditto -x -k slices/Demonsaw-macos-arm64/Demonsaw-arm64.zip app-arm64/
+
+      - name: Merge into universal bundle
+        run: |
+          rm -rf Demonsaw.app
+          # Start from the arm64 bundle (newer Homebrew Qt), then lipo every
+          # Mach-O file that exists in both slices.
+          cp -R app-arm64/Demonsaw.app Demonsaw.app
+          while IFS= read -r -d '' f; do
+            rel="${f#./}"
+            if [ -f "Demonsaw.app/$rel" ]; then
+              if lipo -info "$f" >/dev/null 2>&1; then
+                lipo -create "$f" "Demonsaw.app/$rel" -output "Demonsaw.app/$rel"
+              fi
+            fi
+          done < <(cd app-x86_64 && find . -type f -print0)
+
+      - name: Verify universal binary
+        run: |
+          lipo -info Demonsaw.app/Contents/MacOS/Demonsaw
+          lipo -info Demonsaw.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
+
+      - name: Ad-hoc codesign merged bundle
+        run: codesign --force --deep --sign - Demonsaw.app
 
       - name: Create DMG
         run: |
           mkdir -p staging
-          cp -R build/Demonsaw.app staging/
-          cp build/demonsaw_cli build/demonsaw_router staging/
+          cp -R Demonsaw.app staging/
+          cp slices/Demonsaw-macos-arm64/demonsaw_cli staging/
+          cp slices/Demonsaw-macos-arm64/demonsaw_router staging/
           ln -s /Applications staging/Applications
           hdiutil create -volname "Demonsaw" -srcfolder staging -ov \
             -format UDZO "Demonsaw-4.2.1-macos-universal.dmg"
           hdiutil verify "Demonsaw-4.2.1-macos-universal.dmg"
 
-      - name: Upload artifacts
+      - name: Upload universal DMG
         uses: actions/upload-artifact@v4
         with:
           name: Demonsaw-macos-universal
-          path: |
-            Demonsaw-4.2.1-macos-universal.dmg
+          path: Demonsaw-4.2.1-macos-universal.dmg
           if-no-files-found: error

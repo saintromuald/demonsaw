@@ -59,11 +59,23 @@ Outputs:
 
 ## CI builds
 
-`.github/workflows/build-macos.yml` builds a **universal** `x86_64 + arm64`
-DMG (macOS 11+) on GitHub's macOS runners, runs smoke tests (engine, CLI,
-GUI launch), bundles Qt, ad-hoc signs, and uploads
-`Demonsaw-4.2.1-macos-universal.dmg` as a workflow artifact. Push to
-`master`/`osx` or use `workflow_dispatch`.
+`.github/workflows/build-macos.yml` builds on GitHub's macOS runners and
+uploads three artifact sets:
+
+- `Demonsaw-macos-universal` — a universal (x86_64 + arm64) DMG for macOS 11+
+  (two per-arch app bundles merged with `lipo`)
+- `Demonsaw-macos-x86_64` — Intel-only app (macOS 10.15+, for old Macs)
+- `Demonsaw-macos-arm64` — Apple Silicon app (macOS 11+)
+
+Each build runs smoke tests (engine, CLI, GUI launch) on native hardware,
+bundles Qt with `macdeployqt`, and ad-hoc signs. Push to `master`/`osx` or
+use `workflow_dispatch`.
+
+> Why two Qt installs: the official open-source Qt 5.15.2 macOS binaries are
+> x86_64-only (Qt 5 never shipped arm64 prebuilts). The Intel slice builds
+> against those; the arm64 slice builds against Homebrew's `qt@5`; the two
+> bundles are merged with `lipo`. Qt guarantees binary compatibility across
+> 5.15.x patch releases, so the mixed slices link cleanly.
 
 ## Release signing
 
