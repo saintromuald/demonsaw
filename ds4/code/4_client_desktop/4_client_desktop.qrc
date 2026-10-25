@@ -3,6 +3,31 @@
 		<!-- CSS -->
 		<file alias="style.css">resource/style.css</file>
 
+		<file alias="themes/dark-classic.css">resource/style_dark.css</file>
+		<file alias="themes/catppuccin-latte.css">resource/themes/catppuccin-latte.css</file>
+		<file alias="themes/catppuccin.css">resource/themes/catppuccin.css</file>
+		<file alias="themes/ethereal.css">resource/themes/ethereal.css</file>
+		<file alias="themes/everforest.css">resource/themes/everforest.css</file>
+		<file alias="themes/flexoki-light.css">resource/themes/flexoki-light.css</file>
+		<file alias="themes/gruvbox.css">resource/themes/gruvbox.css</file>
+		<file alias="themes/hackerman.css">resource/themes/hackerman.css</file>
+		<file alias="themes/kanagawa.css">resource/themes/kanagawa.css</file>
+		<file alias="themes/last-horizon.css">resource/themes/last-horizon.css</file>
+		<file alias="themes/lumon.css">resource/themes/lumon.css</file>
+		<file alias="themes/lupine.css">resource/themes/lupine.css</file>
+		<file alias="themes/matte-black.css">resource/themes/matte-black.css</file>
+		<file alias="themes/miasma.css">resource/themes/miasma.css</file>
+		<file alias="themes/nord.css">resource/themes/nord.css</file>
+		<file alias="themes/osaka-jade.css">resource/themes/osaka-jade.css</file>
+		<file alias="themes/retro-82.css">resource/themes/retro-82.css</file>
+		<file alias="themes/ristretto.css">resource/themes/ristretto.css</file>
+		<file alias="themes/rose-pine.css">resource/themes/rose-pine.css</file>
+		<file alias="themes/solitude.css">resource/themes/solitude.css</file>
+		<file alias="themes/starship.css">resource/themes/starship.css</file>
+		<file alias="themes/tokyo-night.css">resource/themes/tokyo-night.css</file>
+		<file alias="themes/vantablack.css">resource/themes/vantablack.css</file>
+		<file alias="themes/white.css">resource/themes/white.css</file>
+
 		<!-- ICO -->
 		<file alias="logo.ico">resource/logo.ico</file>
 

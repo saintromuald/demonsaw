@@ -903,6 +903,31 @@ namespace eja
 		qApp->setStyleSheet(style);
 	}
 
+	namespace
+	{
+		QString resolve_theme_path(const QString& theme)
+		{
+			// 1) Existing file: absolute/relative path on disk or qrc path
+			if (QFile::exists(theme))
+				return theme;
+
+			// 2) User themes: ~/.config/demonsaw/themes/<name>.css
+			QString name = theme;
+			if (!name.endsWith(".css"))
+				name += ".css";
+			const auto user_candidate = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + "/demonsaw/themes/" + name;
+			if (QFile::exists(user_candidate))
+				return user_candidate;
+
+			// 3) Bundled themes: :/resource/themes/<name>.css
+			const auto res_candidate = QString(":/resource/themes/") + name;
+			if (QFile::exists(res_candidate))
+				return res_candidate;
+
+			return QString();
+		}
+	}
+
 	void qt_application::set_theme(const std::wstring& theme)
 	{
 		assert(thread_info::main());
@@ -911,17 +936,21 @@ namespace eja
 		{
 			m_theme = theme;
 
-			QFile file(QString::fromStdWString(theme));
+			const auto resolved = resolve_theme_path(QString::fromStdWString(theme));
 
-			if (file.open(QFile::ReadOnly))
+			if (!resolved.isEmpty())
 			{
-				QString style = QLatin1String(file.readAll());
-				qApp->setStyleSheet(style);
+				QFile file(resolved);
+
+				if (file.open(QFile::ReadOnly))
+				{
+					QString style = QLatin1String(file.readAll());
+					qApp->setStyleSheet(style);
+					return;
+				}
 			}
-			else
-			{
-				set_theme();
-			}
+
+			set_theme();
 		}
 		else if (has_theme())
 		{
@@ -937,17 +966,21 @@ namespace eja
 		{
 			m_theme = theme;
 
-			QFile file(QString::fromStdString(theme));
+			const auto resolved = resolve_theme_path(QString::fromStdString(theme));
 
-			if (file.open(QFile::ReadOnly))
+			if (!resolved.isEmpty())
 			{
-				QString style = QLatin1String(file.readAll());
-				qApp->setStyleSheet(style);
+				QFile file(resolved);
+
+				if (file.open(QFile::ReadOnly))
+				{
+					QString style = QLatin1String(file.readAll());
+					qApp->setStyleSheet(style);
+					return;
+				}
 			}
-			else
-			{
-				set_theme();
-			}
+
+			set_theme();
 		}
 		else if (has_theme())
 		{

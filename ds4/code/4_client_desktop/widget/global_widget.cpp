@@ -29,6 +29,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMenu>
+#include <QDir>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPushButton>
@@ -174,8 +176,16 @@ namespace eja
 				m_theme_edit->setFixedSize(QSize(resource::get_fa_button_width(), resource::get_fa_button_height()));
 				m_theme_edit->setFont(awesome);
 
+				// Pick
+				m_theme_pick = new QPushButton(QString(fa::chevron_down), this);
+				m_theme_pick->setObjectName("rounded_button");
+				m_theme_pick->setToolTip("Choose Theme");
+				m_theme_pick->setFixedSize(QSize(resource::get_fa_button_width(), resource::get_fa_button_height()));
+				m_theme_pick->setFont(awesome);
+
 				hlayout->addWidget(m_theme_update);
 				hlayout->addWidget(m_theme_edit);
+				hlayout->addWidget(m_theme_pick);
 
 				set_color();
 			}
@@ -431,6 +441,67 @@ namespace eja
 			}
 		});
 
+		connect(m_theme_pick, &QPushButton::clicked, [&]()
+		{
+			QMenu menu(this);
+
+			// Default
+			const auto default_action = menu.addAction("Default");
+
+			// Bundled themes (from the app resources)
+			QStringList css;
+			css << "*.css";
+			QDir res_dir(":/resource/themes");
+			res_dir.setNameFilters(css);
+			QStringList bundled = res_dir.entryList(QDir::Files, QDir::Name);
+			if (!bundled.isEmpty())
+			{
+				menu.addSection("Bundled");
+				for (const auto& file : bundled)
+					menu.addAction(file.left(file.size() - 4));
+			}
+
+			// User themes (~/.config/demonsaw/themes)
+			const auto user_dir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + "/demonsaw/themes";
+			QDir user_d(user_dir);
+			user_d.setNameFilters(css);
+			const auto user_files = user_d.entryList(QDir::Files, QDir::Name);
+			QStringList user_names;
+			for (const auto& file : user_files)
+			{
+				const auto name = file.left(file.size() - 4);
+				if (!bundled.contains(file))
+					user_names.push_back(name);
+			}
+			if (!user_names.isEmpty())
+			{
+				menu.addSection("User");
+				for (const auto& name : user_names)
+					menu.addAction(name);
+			}
+
+			const auto chosen = menu.exec(QCursor::pos());
+			if (!chosen)
+				return;
+
+			auto& app = main_window::get_app();
+
+			if (chosen == default_action)
+			{
+				app.set_theme();
+				m_theme->clear();
+			}
+			else
+			{
+				const auto name = chosen->text().toStdString();
+				app.set_theme(name);
+				m_theme->setText(chosen->text());
+			}
+
+			const auto window = main_window::get();
+			window->update_theme();
+		});
+
 		connect(m_theme_update, &QPushButton::clicked, [&]()
 		{
 			auto& app = main_window::get_app();
@@ -576,6 +647,7 @@ namespace eja
 
 		m_theme_edit->setStyleSheet(style);
 		m_theme_update->setStyleSheet(style);
+		m_theme_pick->setStyleSheet(style);
 	}
 
 	// Get

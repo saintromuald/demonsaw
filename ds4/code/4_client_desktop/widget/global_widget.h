@@ -65,6 +65,7 @@ namespace eja
 		QLineEdit* m_theme = nullptr;
 		QPushButton* m_theme_edit = nullptr;
 		QPushButton* m_theme_update = nullptr;
+		QPushButton* m_theme_pick = nullptr;
 
 		// Transfer
 		QSpinBox* m_downloads = nullptr;
