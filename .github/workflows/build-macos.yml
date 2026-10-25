@@ -71,7 +71,7 @@ jobs:
           fi
 
       - name: Deploy Qt frameworks
-        run: "$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app
+        run: '"$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app'
 
       - name: Ad-hoc codesign (for local use; release signing is a manual step)
         run: codesign --force --deep --sign - build/Demonsaw.app
