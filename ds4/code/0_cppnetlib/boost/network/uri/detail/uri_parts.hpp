@@ -29,26 +29,26 @@ struct hierarchical_part {
   void update() {
     if (!user_info) {
       if (host) {
-        user_info = make_optional(iterator_range<FwdIter>(std::begin(host.get()),
+        user_info = boost::make_optional(iterator_range<FwdIter>(std::begin(host.get()),
                                             std::begin(host.get())));
       } else if (path) {
-        user_info = make_optional(iterator_range<FwdIter>(std::begin(path.get()),
+        user_info = boost::make_optional(iterator_range<FwdIter>(std::begin(path.get()),
                                             std::begin(path.get())));
       }
     }
 
     if (!host) {
-      host = make_optional(iterator_range<FwdIter>(std::begin(path.get()),
+      host = boost::make_optional(iterator_range<FwdIter>(std::begin(path.get()),
                                      std::begin(path.get())));
     }
 
     if (!port) {
-      port = make_optional(iterator_range<FwdIter>(std::end(host.get()),
+      port = boost::make_optional(iterator_range<FwdIter>(std::end(host.get()),
                                      std::end(host.get())));
     }
 
     if (!path) {
-      path = make_optional(iterator_range<FwdIter>(std::end(port.get()),
+      path = boost::make_optional(iterator_range<FwdIter>(std::end(port.get()),
                                      std::end(port.get())));
     }
   }
@@ -70,12 +70,12 @@ struct uri_parts {
     hier_part.update();
 
     if (!query) {
-      query = make_optional(iterator_range<FwdIter>(std::end(hier_part.path.get()),
+      query = boost::make_optional(iterator_range<FwdIter>(std::end(hier_part.path.get()),
                                       std::end(hier_part.path.get())));
     }
 
     if (!fragment) {
-      fragment = make_optional(iterator_range<FwdIter>(std::end(query.get()),
+      fragment = boost::make_optional(iterator_range<FwdIter>(std::end(query.get()),
                                          std::end(query.get())));
     }
   }
