@@ -210,11 +210,11 @@ namespace eja
 		const char* author = "An Eijah Production";
 		const char* motto = "Believe in the Right to Share";
 
-		const char* version = "4.20";
-		const char* build = "Version 4.20";
+		const char* version = "4.2.1";
+		const char* build = "Version 4.2.1";
 		const char* date = "April 20th, 2020";
-		const char* title = "Demonsaw 4.20";
-		const char* titlebar = "Demonsaw 4.20 [*]";
+		const char* title = "Demonsaw 4.2.1";
+		const char* titlebar = "Demonsaw 4.2.1 [*]";
 
 		const char* website = "https://www.demonsaw.com";
 		const char* help = "https://www.titan.wiki";

@@ -39,8 +39,16 @@ class QSlider;
 class QSpinBox;
 class QVBoxLayout;
 
+class QCheckBox;
+class QLabel;
+class QLineEdit;
+class QPushButton;
+class QSlider;
+class QSpinBox;
+
 namespace eja
 {
+	class update_checker;
 	class global_widget final : public QWidget
 	{
 		Q_OBJECT;
@@ -66,6 +74,11 @@ namespace eja
 		QPushButton* m_theme_edit = nullptr;
 		QPushButton* m_theme_update = nullptr;
 		QPushButton* m_theme_pick = nullptr;
+		QPushButton* m_update_button = nullptr;
+		QCheckBox* m_check_updates = nullptr;
+		QCheckBox* m_auto_update = nullptr;
+		update_checker* m_updates = nullptr;
+		bool m_updates_interactive = false;
 
 		// Transfer
 		QSpinBox* m_downloads = nullptr;

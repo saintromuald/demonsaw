@@ -291,6 +291,8 @@ namespace eja
 			read_ex<bool>(global_node, toml::system_tray, [&](const bool value) { set_system_tray(value); });
 			read_ex<bool>(global_node, toml::timestamps, [&](const bool value) { set_timestamps(value); });
 			read_ex<bool>(global_node, toml::user_colors, [&](const bool value) { set_user_colors(value); });
+			read_ex<bool>(global_node, toml::check_updates, [&](const bool value) { set_check_updates(value); });
+			read_ex<bool>(global_node, toml::auto_update, [&](const bool value) { set_auto_update(value); });
 
 			read_ex<size_t>(global_node, toml::active_tab, [&](const size_t value) { set_active(value); });
 			read_ex<size_t>(global_node, toml::font_size, [&](const size_t value) { set_font_size(clamp(ui::min_font_size, value, ui::max_font_size, ui::num_font_size)); });
@@ -658,6 +660,8 @@ namespace eja
 		write_ex(global_node, toml::system_tray, is_system_tray());
 		write_ex(global_node, toml::timestamps, is_timestamps());
 		write_ex(global_node, toml::user_colors, is_user_colors());
+		write_ex(global_node, toml::check_updates, is_check_updates());
+		write_ex(global_node, toml::auto_update, is_auto_update());
 
 		write_ex(global_node, toml::active_tab, m_active);
 		write_ex(global_node, toml::font_size, m_font_size);
