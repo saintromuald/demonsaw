@@ -41,7 +41,7 @@ namespace eja
 {
 	class qt_application final : public QApplication, public application, public mode<size_t>
 	{
-		enum bits : size_t { none, auto_open = bit(1), statusbar = bit(2), user_colors = bit(3), timestamps = bit(4), system_tray = bit(5), all = (auto_open | statusbar | user_colors | timestamps | system_tray) };
+		enum bits : size_t { none, auto_open = bit(1), statusbar = bit(2), user_colors = bit(3), timestamps = bit(4), system_tray = bit(5), check_updates = bit(6), auto_update = bit(7), all = (auto_open | statusbar | user_colors | timestamps | system_tray | check_updates | auto_update) };
 
 	private:
 		entity_list m_clients;
@@ -141,6 +141,10 @@ namespace eja
 		void set_theme(const std::string& theme);
 
 		void set_auto_open(const bool value) { set_mode(bits::auto_open, value); }
+		bool is_check_updates() const { return is_mode(bits::check_updates); }
+		void set_check_updates(const bool value) { set_mode(bits::check_updates, value); }
+		bool is_auto_update() const { return is_mode(bits::auto_update); }
+		void set_auto_update(const bool value) { set_mode(bits::auto_update, value); }
 		void set_statusbar(const bool value) { set_mode(bits::statusbar, value); }
 		void set_system_tray(const bool value) { set_mode(bits::system_tray, value); }
 		void set_timestamps(const bool value) { set_mode(bits::timestamps, value); }

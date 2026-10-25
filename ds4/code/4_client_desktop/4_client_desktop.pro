@@ -6,7 +6,7 @@ message("4_client_desktop:" $$PLATFORM $$COMPILER $$BUILD $$LIBRARY)
 TEMPLATE = app
 TARGET = 4_client_desktop
 
-QT *= widgets svg
+QT *= widgets svg network
 
 # Path
 DESTDIR = $$DEV_BIN

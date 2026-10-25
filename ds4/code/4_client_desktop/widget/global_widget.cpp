@@ -31,6 +31,8 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QDir>
+#include <QMessageBox>
+#include <QTimer>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPushButton>
@@ -46,6 +48,8 @@
 #include "utility/value.h"
 #include "widget/help_dialog.h"
 #include "widget/global_widget.h"
+#include "widget/update_checker.h"
+#include "widget/update_dialog.h"
 #include "window/main_window.h"
 
 namespace eja
@@ -131,6 +135,18 @@ namespace eja
 
 			vvlayout = resource::get_vbox_layout();
 			vvlayout->addWidget(m_help);
+			vvlayout->addSpacing(2);
+			hlayout->addLayout(vvlayout);
+
+			// Update
+			m_update_button = new QPushButton(QString(fa::download), this);
+			m_update_button->setObjectName("rounded_button");
+			m_update_button->setToolTip("Check for Updates");
+			m_update_button->setFixedSize(QSize(resource::get_fa_button_width(), resource::get_fa_button_height()));
+			m_update_button->setFont(awesome);
+
+			vvlayout = resource::get_vbox_layout();
+			vvlayout->addWidget(m_update_button);
 			vvlayout->addSpacing(2);
 			hlayout->addLayout(vvlayout);
 
@@ -247,6 +263,14 @@ namespace eja
 			m_user_colors = new QCheckBox("User Colors", this);
 			m_user_colors->setCheckState(app.is_user_colors() ? Qt::Checked : Qt::Unchecked);
 			hlayout->addWidget(m_user_colors);
+
+			m_check_updates = new QCheckBox("Check for Updates", this);
+			m_check_updates->setCheckState(app.is_check_updates() ? Qt::Checked : Qt::Unchecked);
+			hlayout->addWidget(m_check_updates);
+
+			m_auto_update = new QCheckBox("Auto Update", this);
+			m_auto_update->setCheckState(app.is_auto_update() ? Qt::Checked : Qt::Unchecked);
+			hlayout->addWidget(m_auto_update);
 
 			hlayout->addStretch(1);
 			layout->addLayout(hlayout);
@@ -390,6 +414,12 @@ namespace eja
 
 			m_user_colors->setChecked(true);
 			emit m_user_colors->clicked(true);
+
+			m_check_updates->setChecked(true);
+			emit m_check_updates->clicked(true);
+
+			m_auto_update->setChecked(true);
+			emit m_auto_update->clicked(true);
 
 			// Theme
 			m_theme->clear();
@@ -617,10 +647,77 @@ namespace eja
 		{
 			auto& app = main_window::get_app();
 			app.set_user_colors(m_user_colors->isChecked());
-
 			// Update Widgets
 			const auto window = main_window::get();
 			window->update_color();
+		});
+
+		// Updates
+		connect(m_check_updates, &QCheckBox::clicked, [&]()
+		{
+			auto& app = main_window::get_app();
+			app.set_check_updates(m_check_updates->isChecked());
+		});
+
+		connect(m_auto_update, &QCheckBox::clicked, [&]()
+		{
+			auto& app = main_window::get_app();
+			app.set_auto_update(m_auto_update->isChecked());
+		});
+
+		if (!m_updates)
+			m_updates = new update_checker(this);
+
+		connect(m_update_button, &QPushButton::clicked, this, [&]() { m_updates_interactive = true; m_updates->check(true); });
+
+		connect(m_updates, &update_checker::up_to_date, this, [&](const QString& version)
+		{
+			if (m_updates_interactive)
+				QMessageBox::information(this, "Demonsaw", QString("You are running the latest version (%1).").arg(version));
+		});
+
+		connect(m_updates, &update_checker::update_available, this, [&](const QString& version, const QString& notes, const bool can_install)
+		{
+			const auto install = can_install && main_window::get_app().is_auto_update() && !m_updates_interactive;
+			if (install)
+			{
+				m_updates->download_and_install();
+				return;
+			}
+
+			const auto text = QString("Version %1 is available.\n\n%2").arg(version, notes);
+			update_dialog dlg(QString("Update Demonsaw to %1").arg(version), text, can_install, this);
+			connect(&dlg, &update_dialog::install, m_updates, &update_checker::download_and_install);
+			connect(&dlg, &update_dialog::download, m_updates, &update_checker::open_release_page);
+			dlg.exec();
+		});
+
+		connect(m_updates, &update_checker::no_package, this, [&](const QString& version, const QString& notes)
+		{
+			if (!m_updates_interactive)
+				return;
+
+			const auto text = QString("Version %1 is available, but there is no package for this platform yet.\n\n%2").arg(version, notes);
+			update_dialog dlg(QString("Update Demonsaw to %1").arg(version), text, false, this);
+			connect(&dlg, &update_dialog::download, m_updates, &update_checker::open_release_page);
+			dlg.exec();
+		});
+
+		connect(m_updates, &update_checker::failed, this, [&](const QString& error)
+		{
+			if (m_updates_interactive)
+				QMessageBox::warning(this, "Update Check Failed", error);
+		});
+
+		// Startup check (silent unless an update needs attention)
+		QTimer::singleShot(5000, this, [&]()
+		{
+			auto& app = main_window::get_app();
+			if (app.is_check_updates())
+			{
+				m_updates_interactive = false;
+				m_updates->check(false);
+			}
 		});
 	}
 
@@ -644,6 +741,7 @@ namespace eja
 
 		m_help->setStyleSheet(style);
 		m_reset->setStyleSheet(style);
+		m_update_button->setStyleSheet(style);
 
 		m_theme_edit->setStyleSheet(style);
 		m_theme_update->setStyleSheet(style);

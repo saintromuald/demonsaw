@@ -33,6 +33,8 @@ namespace eja
 		//
 		const char* active_tab = "active_tab";
 		const char* auto_open = "auto_open";
+		const char* check_updates = "check_updates";
+		const char* auto_update = "auto_update";
 		const char* user_colors = "user_colors";
 		const char* download_speed = "download_speed";
 		const char* font_size = "font_size";
