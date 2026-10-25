@@ -56,11 +56,16 @@ copy_plugin()
 	done
 }
 
-# libqcocoa is required (Cocoa platform plugin); libqsvg serves the app's
-# SVG logos; libqmacstyle is the native widget style.
-copy_plugin "$QTPREFIX/plugins/platforms/libqcocoa.dylib"   "$PLUG_DIR/platforms/libqcocoa.dylib"
-copy_plugin "$QTPREFIX/plugins/styles/libqmacstyle.dylib"   "$PLUG_DIR/styles/libqmacstyle.dylib"
-copy_plugin "$QTPREFIX/plugins/imageformats/libqsvg.dylib"  "$PLUG_DIR/imageformats/libqsvg.dylib"
+# Copy every platform/style/imageformat plugin: libqcocoa is required, the
+# app renders SVG logos and PNG/ICO assets, and the style plugin provides
+# the native macOS widget style.
+for dir in platforms styles imageformats; do
+	mkdir -p "$PLUG_DIR/$dir"
+	for pl in "$QTPREFIX/plugins/$dir"/*.dylib; do
+		[ -f "$pl" ] || continue
+		copy_plugin "$pl" "$PLUG_DIR/$dir/$(basename "$pl")"
+	done
+done
 
 # --- App binary -------------------------------------------------------------
 for dep in QtCore QtGui QtWidgets QtSvg; do

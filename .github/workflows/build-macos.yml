@@ -64,12 +64,14 @@ jobs:
           arch -x86_64 /usr/bin/install_name_tool 2>&1 | head -1 || true
           "$HOME/Qt/5.15.2/clang_64/bin/macdeployqt" build/Demonsaw.app \
             || echo "macdeployqt failed; falling back to manual deploy"
-          if [ ! -d build/Demonsaw.app/Contents/Frameworks ]; then
-            echo "macdeployqt deployed nothing; running manual deploy"
+          if [ ! -d build/Demonsaw.app/Contents/Frameworks ] \
+             || [ ! -f build/Demonsaw.app/Contents/PlugIns/platforms/libqcocoa.dylib ]; then
+            echo "macdeployqt deployed incompletely; running manual deploy"
             bash ds4/code/cmake/macdeploy-manual.sh \
               "$HOME/Qt/5.15.2/clang_64" build/Demonsaw.app
           fi
           ls build/Demonsaw.app/Contents/Frameworks/
+          ls build/Demonsaw.app/Contents/PlugIns/platforms/
 
       - name: Ad-hoc codesign
         run: codesign --force --deep --sign - build/Demonsaw.app
@@ -184,12 +186,14 @@ jobs:
         run: |
           /opt/homebrew/opt/qt@5/bin/macdeployqt build/Demonsaw.app \
             || echo "macdeployqt failed; falling back to manual deploy"
-          if [ ! -d build/Demonsaw.app/Contents/Frameworks ]; then
-            echo "macdeployqt deployed nothing; running manual deploy"
+          if [ ! -d build/Demonsaw.app/Contents/Frameworks ] \
+             || [ ! -f build/Demonsaw.app/Contents/PlugIns/platforms/libqcocoa.dylib ]; then
+            echo "macdeployqt deployed incompletely; running manual deploy"
             bash ds4/code/cmake/macdeploy-manual.sh \
               "/opt/homebrew/opt/qt@5" build/Demonsaw.app
           fi
           ls build/Demonsaw.app/Contents/Frameworks/
+          ls build/Demonsaw.app/Contents/PlugIns/platforms/
 
       - name: Ad-hoc codesign
         run: codesign --force --deep --sign - build/Demonsaw.app
