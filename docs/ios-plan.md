@@ -1,9 +1,10 @@
 # iOS plan of attack
 
 Target: Demonsaw on iOS with feature parity with the desktop client, to the
-extent iOS allows. Status: **implemented** - SwiftUI client on the shared
-headless engine (see README-ios.md); distribution (TestFlight/App Store)
-is the remaining manual step.
+extent iOS allows. Status: **built** - the SwiftUI client compiles, installs
+and launches on the iPhone 15 simulator in CI (see README-ios.md); the
+engine ships as a device+simulator XCFramework. Remaining: TestFlight /
+App Store distribution (needs the Apple Developer account).
 
 ## What we already have (from the Android port)
 
