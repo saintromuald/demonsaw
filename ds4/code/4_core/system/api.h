@@ -59,7 +59,6 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <netpacket/packet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
