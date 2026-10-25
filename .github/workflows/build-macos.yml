@@ -22,8 +22,9 @@ jobs:
 
       - name: Install Qt 5.15.2 (universal)
         run: |
-          python3 -m pip install --user --quiet aqtinstall
-          python3 -m aqt install-qt mac desktop 5.15.2 \
+          python3 -m venv "$HOME/aqt-venv"
+          "$HOME/aqt-venv/bin/pip" install --quiet aqtinstall
+          "$HOME/aqt-venv/bin/python" -m aqt install-qt mac desktop 5.15.2 \
             --outputdir "$HOME/Qt" -m qtsvg qttools
           "$HOME/Qt/5.15.2/clang_64/bin/qmake" --version
 
