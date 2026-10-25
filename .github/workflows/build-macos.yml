@@ -239,9 +239,9 @@ jobs:
           cp -R app-arm64/Demonsaw.app Demonsaw.app
           while IFS= read -r -d '' f; do
             rel="${f#./}"
-            if [ -f "Demonsaw.app/$rel" ]; then
+            if [ -f "$rel" ]; then
               if lipo -info "$f" >/dev/null 2>&1; then
-                lipo -create "$f" "Demonsaw.app/$rel" -output "Demonsaw.app/$rel"
+                lipo -create "$f" "$rel" -output "$rel"
               fi
             fi
           done < <(cd app-x86_64 && find . -type f -print0)
@@ -256,7 +256,9 @@ jobs:
             Demonsaw.app/Contents/Frameworks/QtGui.framework/Versions/5/QtGui \
             Demonsaw.app/Contents/Frameworks/QtWidgets.framework/Versions/5/QtWidgets \
             Demonsaw.app/Contents/Frameworks/QtSvg.framework/Versions/5/QtSvg \
-            Demonsaw.app/Contents/PlugIns/platforms/libqcocoa.dylib; do
+            Demonsaw.app/Contents/PlugIns/platforms/libqcocoa.dylib \
+            Demonsaw.app/Contents/PlugIns/imageformats/libqsvg.dylib \
+            Demonsaw.app/Contents/PlugIns/styles/libqmacstyle.dylib; do
             if ! lipo -info "$f" 2>/dev/null | grep -q "x86_64" \
                || ! lipo -info "$f" 2>/dev/null | grep -q "arm64"; then
               echo "NOT UNIVERSAL: $f"
