@@ -188,6 +188,37 @@ jobs:
           lipo -info Demonsaw.app/Contents/MacOS/Demonsaw
           lipo -info Demonsaw.app/Contents/Frameworks/QtCore.framework/Versions/5/QtCore
 
+      - name: Smoke test merged bundle (arm64 native)
+        run: |
+          ./Demonsaw.app/Contents/MacOS/Demonsaw &
+          APP_PID=$!
+          sleep 8
+          if kill -0 "$APP_PID" 2>/dev/null; then
+            echo "universal app alive (arm64): OK"
+            kill "$APP_PID" || true
+          else
+            wait "$APP_PID"
+            echo "universal app exited early on arm64 (code $?)" >&2
+            exit 1
+          fi
+
+      - name: Smoke test merged bundle (x86_64 via Rosetta, best-effort)
+        run: |
+          if ! arch -x86_64 ./Demonsaw.app/Contents/MacOS/Demonsaw & then
+            echo "Rosetta unavailable; skipping x86_64 smoke test"
+            exit 0
+          fi
+          APP_PID=$!
+          sleep 8
+          if kill -0 "$APP_PID" 2>/dev/null; then
+            echo "universal app alive (x86_64/Rosetta): OK"
+            kill "$APP_PID" || true
+          else
+            wait "$APP_PID"
+            echo "universal app exited early on x86_64 (code $?)" >&2
+            exit 1
+          fi
+
       - name: Ad-hoc codesign merged bundle
         run: codesign --force --deep --sign - Demonsaw.app
 
