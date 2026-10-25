@@ -1,0 +1,12 @@
+Demonsaw is a free, open-source, encrypted and anonymous communication platform. It connects to Demonsaw routers over the internet and provides group chat, private messages and file sharing, all encrypted and routed so that nobody knows who you are or what you are sharing.
+
+This is an Android port of Demonsaw 4.2.1. The desktop Qt UI is replaced with a native Kotlin/Compose app that talks to a small JNI layer; the wire protocol and crypto are unchanged, so Android clients interoperate with desktop clients and routers.
+
+Features:
+* Group chat (both directions), rooms (join/leave/chat), private messages
+* Browse nested shares, download files and whole folders
+* Full file transfers (uploads and downloads) with progress, queue, cancellation and finished history
+* Search across shared files
+* Share folders and files from the phone; desktop peers can download them
+* Error log, connection status, group id display
+* Foreground service keeps the connection and transfers alive in the background
