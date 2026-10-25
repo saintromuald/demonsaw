@@ -5,16 +5,24 @@ Native Android port of Demonsaw 4.2.1, built on the original Qt-free C++ core
 app that talks to a small JNI layer; the wire protocol and crypto are unchanged,
 so Android clients interoperate with desktop clients and routers.
 
-## What works
+## Feature parity with the desktop client
 
-- Connect to any Demonsaw router (self-hosted or public)
-- Join/leave a group by passphrase; the group id is derived locally
-- Encrypted group chat (send and receive), verified against the desktop client
-- Client list / browse
-- Connection status, group id display
+Verified end-to-end against desktop clients and our own router:
 
-Still to come: rooms, private messages, file sharing/transfers, background
-service for transfers, QR-style group invites.
+- Group chat (both directions), rooms (join/leave/chat), private messages
+- Client list with mute/unmute
+- Browse nested shares, download files and whole folders
+- Full file transfers (uploads and downloads) with progress, queue,
+  cancellation and finished history - byte-verified with matching hashes
+- Search across shared files
+- Share folders/files from the phone; desktop peers can download them
+- Error log, connection status, group id display
+- Foreground service keeps the connection and transfers alive in the
+  background (Android 13+ notification permission is requested at startup)
+
+Known limitations: folder shares from the phone need "All files access"
+(granted from Settings; the app links to the system screen). Transfers use
+the app's own storage unless that permission is granted.
 
 ## Layout
 

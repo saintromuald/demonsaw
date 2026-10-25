@@ -1,6 +1,8 @@
 package org.demonsaw.app
 
 import android.content.Context
+import android.os.Build
+import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -19,6 +21,7 @@ data class UiState(
     val connecting: Boolean = false,
     val snapshot: Snapshot = Snapshot(),
     val error: String? = null,
+    val notice: String? = null,
 ) {
     val running: Boolean get() = snapshot.running
 }
@@ -33,6 +36,9 @@ class AppViewModel : ViewModel() {
 
     private var pollJob: Job? = null
 
+    @Volatile
+    private var appContext: Context? = null
+
     fun connect(context: Context, host: String, port: Int, name: String, passphrase: String) {
         viewModelScope.launch {
             _state.update { it.copy(connecting = true, error = null) }
@@ -41,7 +47,13 @@ class AppViewModel : ViewModel() {
                 try {
                     val config = File(context.filesDir, "client.toml")
                     config.writeText(buildConfig(host, port, name, passphrase))
-                    Native.start(config.absolutePath)
+                    if (Native.start(config.absolutePath)) {
+                        val downloads = defaultDownloadPath(context)
+                        Native.command(Native.CMD_SET_DOWNLOAD_PATH, downloads, "")
+                        true
+                    } else {
+                        false
+                    }
                 } catch (t: Throwable) {
                     false
                 }
@@ -51,6 +63,9 @@ class AppViewModel : ViewModel() {
                 _state.update { it.copy(connecting = false, error = "Could not start the client. Check the router address.") }
                 return@launch
             }
+
+            appContext = context.applicationContext
+            ForegroundService.start(context.applicationContext)
 
             context.getSharedPreferences("demonsaw", Context.MODE_PRIVATE).edit()
                 .putString("host", host)
@@ -63,25 +78,65 @@ class AppViewModel : ViewModel() {
         }
     }
 
-    fun send(text: String) {
-        if (text.isBlank()) return
-        viewModelScope.launch { withContext(dispatcher) { Native.chat(text.trim()) } }
+    fun send(text: String) = command(Native.CMD_CHAT, text, "")
+
+    fun sendPm(clientId: String, text: String) = command(Native.CMD_PM, clientId, text)
+
+    fun sendRoom(roomId: String, text: String) = command(Native.CMD_ROOM_CHAT, roomId, text)
+
+    fun joinRoom(roomId: String) = command(Native.CMD_ROOM_JOIN, roomId, "")
+
+    fun quitRoom(roomId: String) = command(Native.CMD_ROOM_QUIT, roomId, "")
+
+    fun browse(key: String) = command(Native.CMD_BROWSE, key, "")
+
+    fun mute(clientId: String, value: Boolean) = command(Native.CMD_MUTE, clientId, if (value) "1" else "0")
+
+    fun shareAdd(path: String) {
+        command(Native.CMD_SHARE_ADD, path, "") { ok ->
+            if (!ok) _state.update { it.copy(notice = "Path not found: $path") }
+        }
     }
 
-    fun browse() {
-        viewModelScope.launch { withContext(dispatcher) { Native.browse() } }
-    }
+    fun shareRemove(path: String) = command(Native.CMD_SHARE_REMOVE, path, "")
 
-    fun join() {
-        viewModelScope.launch { withContext(dispatcher) { Native.join() } }
-    }
+    fun download(key: String) = command(Native.CMD_DOWNLOAD, key, "")
+
+    fun downloadAll(key: String) = command(Native.CMD_DOWNLOAD_ALL, key, "")
+
+    fun cancelDownload(id: String) = command(Native.CMD_CANCEL_DOWNLOAD, id, "")
+
+    fun cancelUpload(id: String) = command(Native.CMD_CANCEL_UPLOAD, id, "")
+
+    fun setDownloadPath(path: String) = command(Native.CMD_SET_DOWNLOAD_PATH, path, "")
+
+    fun search(text: String) = command(Native.CMD_SEARCH, text, "")
+
+    fun join() = command(Native.CMD_JOIN, "", "")
+
+    fun refreshRooms() = command(Native.CMD_ROOMS_REFRESH, "", "")
 
     fun disconnect() {
         pollJob?.cancel()
         pollJob = null
         viewModelScope.launch {
             withContext(dispatcher) { Native.stop() }
+            appContext?.let { ForegroundService.stop(it) }
+            appContext = null
             _state.value = UiState()
+        }
+    }
+
+    private fun command(type: Int, a: String, b: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = withContext(dispatcher) {
+                try {
+                    Native.command(type, a, b)
+                } catch (t: Throwable) {
+                    "{\"ok\":false}"
+                }
+            }
+            onResult(result.contains("\"ok\":true"))
         }
     }
 
@@ -141,6 +196,20 @@ class AppViewModel : ViewModel() {
     override fun onCleared() {
         pollJob?.cancel()
         Native.stop()
+        appContext?.let { ForegroundService.stop(it) }
         super.onCleared()
+    }
+
+    companion object {
+        fun defaultDownloadPath(context: Context): String {
+            val external = if (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()) {
+                File(Environment.getExternalStorageDirectory(), "Download/Demonsaw")
+            } else {
+                null
+            }
+            val dir = external ?: File(context.getExternalFilesDir(null) ?: context.filesDir, "Downloads")
+            dir.mkdirs()
+            return dir.absolutePath
+        }
     }
 }
