@@ -26,7 +26,9 @@
 #endif
 
 #include <algorithm>
+#include <chrono>
 #include <iostream>
+#include <thread>
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -67,10 +69,19 @@ namespace eja
 
 			while (m_active)
 			{
-				std::cout << "> ";
+				std::cout << "> " << std::flush;
 
 				std::string line;
-				getline(std::cin, line);
+				if (!std::getline(std::cin, line))
+				{
+					// No console input (daemon / redirected stdin): keep the
+					// router services running instead of spinning on EOF.
+					while (m_active)
+						std::this_thread::sleep_for(std::chrono::seconds(1));
+
+					break;
+				}
+
 				if (line.empty())
 					continue;
 

@@ -22,6 +22,7 @@
 // SOFTWARE.
 
 #include <cassert>
+#include <stdexcept>
 #include <cryptopp/nbtheory.h>
 #include <cryptopp/osrng.h>
 

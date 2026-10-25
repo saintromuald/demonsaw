@@ -138,8 +138,9 @@ namespace eja
 						}
 					}
 
-					// Send to self?
-					return !request_message->is_self();
+					// Deliver to every group member. The self flag is only a hint;
+					// dropping everyone when it is unset breaks group chat.
+					return false;
 
 				}), clients.end());
 			}
@@ -163,8 +164,9 @@ namespace eja
 						}
 					}
 
-					// Send to self?
-					return !request_message->is_self();
+					// Deliver to every group member. The self flag is only a hint;
+					// dropping everyone when it is unset breaks group chat.
+					return false;
 
 				}), clients.end());
 			}
