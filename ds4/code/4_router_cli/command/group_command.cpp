@@ -138,8 +138,7 @@ namespace eja
 						}
 					}
 
-					// Deliver to every group member. The self flag is only a hint;
-					// dropping everyone when it is unset breaks group chat.
+					// Send to self?
 					return false;
 
 				}), clients.end());
@@ -164,8 +163,7 @@ namespace eja
 						}
 					}
 
-					// Deliver to every group member. The self flag is only a hint;
-					// dropping everyone when it is unset breaks group chat.
+					// Send to self?
 					return false;
 
 				}), clients.end());
@@ -240,6 +238,11 @@ namespace eja
 			// Group (Don't spam)
 			const auto group = entity->get<group_component>();
 			if (group->has_id())
+				return true;
+
+			// Rooms are the public lobby for group-less clients; relay room
+			// chat even without a group id (upstream dropped these).
+			if (request_message->has_room())
 				return true;
 		}
 

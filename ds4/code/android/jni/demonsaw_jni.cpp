@@ -55,19 +55,9 @@ extern "C"
 		return to_jstring(env, engine()->snapshot());
 	}
 
-	JNIEXPORT jboolean JNICALL Java_org_demonsaw_app_Native_chat(JNIEnv* env, jobject, jstring text)
+	JNIEXPORT jstring JNICALL Java_org_demonsaw_app_Native_command(JNIEnv* env, jobject, jint type, jstring a, jstring b)
 	{
-		return engine()->chat(to_string(env, text)) ? JNI_TRUE : JNI_FALSE;
-	}
-
-	JNIEXPORT jboolean JNICALL Java_org_demonsaw_app_Native_join(JNIEnv*, jobject)
-	{
-		return engine()->join() ? JNI_TRUE : JNI_FALSE;
-	}
-
-	JNIEXPORT jboolean JNICALL Java_org_demonsaw_app_Native_browse(JNIEnv*, jobject)
-	{
-		return engine()->browse() ? JNI_TRUE : JNI_FALSE;
+		return to_jstring(env, engine()->command(static_cast<int>(type), to_string(env, a), to_string(env, b)));
 	}
 
 	JNIEXPORT jboolean JNICALL Java_org_demonsaw_app_Native_isRunning(JNIEnv*, jobject)
