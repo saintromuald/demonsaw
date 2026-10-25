@@ -24,8 +24,10 @@ jobs:
         run: |
           python3 -m venv "$HOME/aqt-venv"
           "$HOME/aqt-venv/bin/pip" install --quiet aqtinstall
+          # The 5.15.2 mac desktop archive already bundles qtbase, qtsvg and
+          # qttools (universal x86_64+arm64); no extra modules are needed.
           "$HOME/aqt-venv/bin/python" -m aqt install-qt mac desktop 5.15.2 \
-            --outputdir "$HOME/Qt" -m qtsvg qttools
+            --outputdir "$HOME/Qt"
           "$HOME/Qt/5.15.2/clang_64/bin/qmake" --version
 
       - name: Fetch Boost 1.69 sources
