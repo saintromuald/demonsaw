@@ -233,21 +233,31 @@ jobs:
 
       - name: Merge into universal bundle
         run: |
-          set -euo pipefail
+          set -euxo pipefail
+          pwd
+          ls -la slices/
+          ls -la slices/*/ 2>&1 | head -30
+          ls -la app-x86_64/ app-arm64/ 2>&1 | head -20
           MERGED="$PWD/Demonsaw.app"
           X86="$PWD/app-x86_64"
+          [ -d "$X86/Demonsaw.app/Contents/MacOS" ] || { echo "FATAL: x86 bundle missing"; exit 1; }
+          [ -d "$PWD/app-arm64/Demonsaw.app/Contents/MacOS" ] || { echo "FATAL: arm bundle missing"; exit 1; }
           rm -rf "$MERGED"
           # Start from the arm64 bundle (newer Homebrew Qt), then lipo every
           # Mach-O file that exists in both slices.
           cp -R app-arm64/Demonsaw.app "$MERGED"
+          count=0
           while IFS= read -r -d '' f; do
             rel="${f#./}"
             if [ -f "$MERGED/$rel" ]; then
               if lipo -info "$X86/$f" >/dev/null 2>&1; then
                 lipo -create "$X86/$f" "$MERGED/$rel" -output "$MERGED/$rel"
+                count=$((count+1))
               fi
             fi
           done < <(cd "$X86" && find . -type f -print0)
+          echo "merged $count Mach-O files"
+          [ "$count" -gt 0 ] || { echo "FATAL: nothing merged"; exit 1; }
 
       - name: Verify universal binary
         run: |
