@@ -1,8 +1,9 @@
 # iOS plan of attack
 
 Target: Demonsaw on iOS with feature parity with the desktop client, to the
-extent iOS allows. Status: **ready to start** (macOS desktop build is done:
-see README-osx.md; this plan is next).
+extent iOS allows. Status: **implemented** - SwiftUI client on the shared
+headless engine (see README-ios.md); distribution (TestFlight/App Store)
+is the remaining manual step.
 
 ## What we already have (from the Android port)
 
