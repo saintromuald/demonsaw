@@ -97,7 +97,7 @@ struct async_message {
     for (string_type const & key : removed_headers) {
       raw_headers.erase(key);
     }
-    retrieved_headers_ = make_optional(raw_headers);
+    retrieved_headers_ = boost::make_optional(raw_headers);
     return *retrieved_headers_;
   }
 
