@@ -46,6 +46,9 @@ cmake --build build --parallel
 
 # 5. Bundle Qt frameworks into the .app
 /path/to/Qt/5.15.2/clang_64/bin/macdeployqt build/Demonsaw.app
+# (if macdeployqt fails - e.g. its otool call times out under Rosetta on an
+#  Apple Silicon machine - use the deterministic fallback instead:)
+bash ds4/code/cmake/macdeploy-manual.sh /path/to/Qt/5.15.2/clang_64 build/Demonsaw.app
 
 # 6. Ad-hoc sign so it runs locally without warnings
 codesign --force --deep --sign - build/Demonsaw.app
@@ -68,8 +71,10 @@ uploads three artifact sets:
 - `Demonsaw-macos-arm64` — Apple Silicon app (macOS 11+)
 
 Each build runs smoke tests (engine, CLI, GUI launch) on native hardware,
-bundles Qt with `macdeployqt`, and ad-hoc signs. Push to `master`/`osx` or
-use `workflow_dispatch`.
+plus an end-to-end test that starts a local router and verifies an engine
+client joins the group and its chat is relayed back. The merge job re-runs
+the GUI launch on both archs (arm64 native and x86_64 under Rosetta) and
+verifies every critical Mach-O is universal before building the DMG.
 
 > Why two Qt installs: the official open-source Qt 5.15.2 macOS binaries are
 > x86_64-only (Qt 5 never shipped arm64 prebuilts). The Intel slice builds
